@@ -1,7 +1,10 @@
 python-adb
 ==========
+
 [![Coverage Status][coverage_img]][coverage_link]
 [![Build Status][build_img]][build_link]
+
+This is a modified version for specific project usage.
 
 Note: This is not an official Google project. It is maintained by ex-Google engineers. For a better maintained option, look at [adb_shell](https://github.com/JeffLIrion/adb_shell).
 
