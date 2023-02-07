@@ -312,7 +312,7 @@ class FastbootCommands(object):
         """
         if isinstance(source_file, str):
             source_len = os.stat(source_file).st_size
-            source_file = open(source_file)
+            source_file = open(source_file, mode='rb')
 
         with source_file:
             if source_len == 0:
