@@ -1,7 +1,7 @@
 python-adb
 ==========
 
-**WARNING: This library incompatible with Python 3.11 or older due to breaking changes on ```inspect``` module. Please use this library along with Python 3.7 - 3.10.**
+**WARNING: This library incompatible with Python 3.11 or older due to breaking changes on ```inspect``` module. Please use this library along with Python 3.7 - 3.10. Contributions of fixing compatibility with Python 3.11 or newer is appreciated. **
 
 [![Coverage Status][coverage_img]][coverage_link]
 
@@ -24,12 +24,6 @@ unlike the Android project's ADB.
 
 
 ### Using as standalone tool
-
-Install using pip:
-
-```sh
-pip install adb
-```
 
 Once installed, two new binaries should be available: `pyadb` and `pyfastboot`.
 
