@@ -1,8 +1,9 @@
 python-adb
 ==========
 
+**WARNING: This library incompatible with Python 3.11 or older due to a breaking changes on ```inspect``` module. Please use this library along with Python 3.7 - 3.10.**
+
 [![Coverage Status][coverage_img]][coverage_link]
-[![Build Status][build_img]][build_link]
 
 This is a modified version for specific project usage.
 
