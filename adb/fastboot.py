@@ -102,6 +102,19 @@ class FastbootProtocol(object):
           OKAY packet's message.
         """
         return self._AcceptResponses(b'OKAY', info_cb, timeout_ms=timeout_ms)
+    
+    def HandleHmdResponses(
+            self, timeout_ms=None, info_cb=DEFAULT_MESSAGE_CALLBACK):
+        """Accepts Hmd responses from the device.
+
+        Args:
+          timeout_ms: Timeout in milliseconds to wait for each response.
+          info_cb: Optional callback for text sent from the bootloader.
+
+        Returns:
+          DATA packet's message.
+        """
+        return self._AcceptResponses(b'DATA', info_cb, timeout_ms=timeout_ms)
 
     def HandleDataSending(self, source_file, source_len,
                           info_cb=DEFAULT_MESSAGE_CALLBACK,
@@ -173,6 +186,26 @@ class FastbootProtocol(object):
             else:
                 raise FastbootInvalidResponse(
                     'Got unknown header %s and response %s', header, remaining)
+                
+    def _AcceptHmdAuthStartResponses(self, length, timeout_ms=None):
+        """Accepts responses from HMD Auth Start Command.
+
+        Args:
+          length: auth_start string length
+          timeout_ms: Timeout in milliseconds to wait for each response.
+
+        Raises:
+          FastbootStateMismatch: Fastboot responded with the wrong packet type.
+          FastbootRemoteFailure: Fastboot reported failure.
+          FastbootInvalidResponse: Fastboot responded with an unknown packet type.
+
+        Returns:
+          a random string based on length given by first output
+        """
+        while True:
+            response = self.usb.BulkRead(length, timeout_ms=timeout_ms)
+            self.usb.BulkRead(64, timeout_ms=timeout_ms)
+            return response
 
     def _HandleProgress(self, total, progress_callback):
         """Calls the callback with the current progress and total ."""
@@ -268,6 +301,11 @@ class FastbootCommands(object):
     def _SimpleCommand(self, command, arg=None, **kwargs):
         self._protocol.SendCommand(command, arg)
         return self._protocol.HandleSimpleResponses(**kwargs)
+    
+    def _HmdAuthStartCommand(self, command, arg=None, **kwargs):
+        self._protocol.SendCommand(command, arg)
+        length=int(self._protocol.HandleHmdResponses(**kwargs).decode('utf-8'), 16)
+        return self._protocol._AcceptHmdAuthStartResponses(length)
 
     def FlashFromFile(self, partition, source_file, source_len=0,
                       info_cb=DEFAULT_MESSAGE_CALLBACK, progress_callback=None):
@@ -346,7 +384,7 @@ class FastbootCommands(object):
           partition: Partition to clear.
         """
         self._SimpleCommand(b'erase', arg=partition, timeout_ms=timeout_ms)
-
+        
     def Getvar(self, var, info_cb=DEFAULT_MESSAGE_CALLBACK):
         """Returns the given variable's definition.
 
@@ -358,6 +396,15 @@ class FastbootCommands(object):
           Value of var according to the current bootloader.
         """
         return self._SimpleCommand(b'getvar', arg=var, info_cb=info_cb)
+
+    def HmdAuthStart(self, timeout_ms=None):
+        """Gets authentication code from HMDSW models.
+
+        Args:
+          None
+        """
+        self._SimpleCommand(b'oem auth_start', timeout_ms=timeout_ms)
+        return self._HmdAuthStartCommand(b'upload')
 
     def Oem(self, command, timeout_ms=None, info_cb=DEFAULT_MESSAGE_CALLBACK):
         """Executes an OEM command on the device.
@@ -396,3 +443,4 @@ class FastbootCommands(object):
     def RebootBootloader(self, timeout_ms=None):
         """Reboots into the bootloader, usually equiv to Reboot('bootloader')."""
         return self._SimpleCommand(b'reboot-bootloader', timeout_ms=timeout_ms)
+
