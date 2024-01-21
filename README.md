@@ -5,7 +5,7 @@ python-adb
 
 [![Coverage Status][coverage_img]][coverage_link]
 
-This is a modified version for specific project usage.
+This is a modified version for specific project usage - for example, service permission granting program for all Nokia phones.
 
 Note: This is not an official Google project. It is maintained by ex-Google engineers. For a better maintained option, look at [adb_shell](https://github.com/JeffLIrion/adb_shell).
 
