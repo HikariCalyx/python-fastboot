@@ -40,26 +40,48 @@ can be run similar to native `adb` and `fastboot` via the python interpreter:
 
 ### Using as a Python Library
 
-A [presentation was made at PyCon 2016][pycon_preso], and here's some demo code:
+HMD model get permission code (note the dk_calculation module is unavailable yet).
 
 ```python
-import os.path as op
+from adb import fastboot
+from io import StringIO
+import dk_calculation
+import sys
 
-from adb import adb_commands
-from adb import sign_cryptography
+def _InfoCb(message):
+    if not message.message:
+        return
+    print(message.message.decode('utf-8'))
 
+def getsecver(device):
+    tmp = sys.stdout
+    result = StringIO()
+    sys.stdout = result
+    device.Oem('getsecurityversion', info_cb=_InfoCb)
+    sys.stdout = tmp
+    del tmp
+    return result.getvalue().splitlines()
 
-# KitKat+ devices require authentication
-signer = sign_cryptography.CryptographySigner(
-    op.expanduser('~/.android/adbkey'))
-# Connect to the device
-device = adb_commands.AdbCommands()
-device.ConnectDevice(
-    rsa_keys=[signer])
-# Now we can use Shell, Pull, Push, etc!
-for i in xrange(10):
-  print device.Shell('echo %d' % i)
+def authcode(device):
+    return device.HmdAuthStart().decode('utf-8')
+
+ThisDevice = fastboot.FastbootCommands()
+ThisDevice.ConnectDevice()
+
+# Essential Informations will be stored at these 3 variables.
+
+product = ThisDevice.Getvar('product').decode('utf-8')
+secver = getsecver(ThisDevice)[0]
+psn = ThisDevice.Getvar('serialno').decode('utf-8')
+
+# 1st permission type is flash
+ThisDevice.Oem('permission flash ' + dk_calculation.getresult(prjcode=product, serialnumber=psn, securityversion=secver, auth_code=authcode(ThisDevice), type=1)
+
+# 3rd permission type is repair
+ThisDevice.Oem('permission repair ' + dk_calculation.getresult(prjcode=product, serialnumber=psn, securityversion=secver, auth_code=authcode(ThisDevice), type=3)
 ```
+
+
 
 ### Pros
 
