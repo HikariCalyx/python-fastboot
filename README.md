@@ -40,7 +40,9 @@ can be run similar to native `adb` and `fastboot` via the python interpreter:
 
 ### Using as a Python Library
 
-HMD model get permission code (note the dk_calculation module is unavailable yet).
+FIHSW model: [See this file as reference](https://github.com/HikariCalyx/uu4-linux/blob/main/auth_utility/fihGetPermission.py)
+
+HMDSW model get permission code (note the dk_calculation module is unavailable yet).
 
 ```python
 from adb import fastboot
