@@ -140,8 +140,12 @@ class FastbootProtocol(object):
         """
         accepted_size = self._AcceptResponses(
             b'DATA', info_cb, timeout_ms=timeout_ms)
-
-        accepted_size = binascii.unhexlify(accepted_size[:8])
+        # Workaround for HMDSW models with annoying spaces as prefix.
+        if b' ' in accepted_size:
+            accepted_size = accepted_size.replace(b' ', b'0')
+            accepted_size = binascii.unhexlify(accepted_size[-8:])
+        else:
+            accepted_size = binascii.unhexlify(accepted_size[:8])
         accepted_size, = struct.unpack(b'>I', accepted_size)
         if accepted_size != source_len:
             raise FastbootTransferError(
@@ -225,7 +229,11 @@ class FastbootProtocol(object):
             progress = self._HandleProgress(length, progress_callback)
             next(progress)
         while length:
-            tmp = data.read(self.chunk_kb * 1024)
+            # Workaround for HMDSW features.
+            if type(data) == bytes and len(data) <= 1048576:
+                tmp = data
+            else:
+                tmp = data.read(self.chunk_kb * 1024)
             length -= len(tmp)
             self.usb.BulkWrite(tmp)
 
@@ -400,11 +408,38 @@ class FastbootCommands(object):
     def HmdAuthStart(self, timeout_ms=None):
         """Gets authentication code from HMDSW models.
 
+        ***CAUTION: This function only supports Nokia Smartphones released since mid-2019! ***
+
         Args:
           None
         """
         self._SimpleCommand(b'oem auth_start', timeout_ms=timeout_ms)
         return self._HmdAuthStartCommand(b'upload')
+    
+    def HmdEnableAuth(self, permType, AuthResult, info_cb=DEFAULT_MESSAGE_CALLBACK, progress_callback=None, timeout_ms=None):
+        """Writes authentication code from HMDSW models.
+
+        ***CAUTION: This function only supports Nokia Smartphones released since mid-2019! ***
+
+        Args:
+          permType: The permission you're going to grant.
+            Allowed values: 1 (flash), 3 (repair)
+          AuthResult: The auth response returned from server.
+        """
+        permissionType = {
+            1: b'flash',
+            3: b'repair'
+        }
+        if permType not in permissionType:
+            raise Exception('InvalidPermissionTypeException')
+        if not len(AuthResult) == 344:
+            raise Exception('InvalidResponseLengthException')
+        AuthResultBin = AuthResult.encode('utf-8')
+        AuthResultLen = len(AuthResult)
+        self._protocol.SendCommand(b'download', b'%08x' % AuthResultLen)
+        self._protocol.HandleDataSending(AuthResultBin, AuthResultLen)
+        return self._SimpleCommand(
+            b'oem permission ' + permissionType[permType], timeout_ms=timeout_ms, info_cb=info_cb)
 
     def Oem(self, command, timeout_ms=None, info_cb=DEFAULT_MESSAGE_CALLBACK):
         """Executes an OEM command on the device.

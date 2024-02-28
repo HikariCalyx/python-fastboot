@@ -64,6 +64,15 @@ def getsecver(device):
     del tmp
     return result.getvalue().splitlines()
 
+def getperm(device):
+    tmp = sys.stdout
+    result = StringIO()
+    sys.stdout = result
+    device.Oem('getpermissions', info_cb=_InfoCb)
+    sys.stdout = tmp
+    del tmp
+    return result.getvalue().splitlines()
+
 def authcode(device):
     return device.HmdAuthStart().decode('utf-8')
 
@@ -77,10 +86,16 @@ secver = getsecver(ThisDevice)[0]
 psn = ThisDevice.Getvar('serialno').decode('utf-8')
 
 # 1st permission type is flash
-ThisDevice.Oem('permission flash ' + dk_calculation.getresult(prjcode=product, serialnumber=psn, securityversion=secver, auth_code=authcode(ThisDevice), type=1)
+ThisDevice.HmdEnableAuth(1, dk_calculation.getresult(prjcode=product, serialnumber=psn, securityversion=secver, auth_code=authcode(ThisDevice))
+
+# Check Enabled Permissions
+print(getperm(ThisDevice))
 
 # 3rd permission type is repair
-ThisDevice.Oem('permission repair ' + dk_calculation.getresult(prjcode=product, serialnumber=psn, securityversion=secver, auth_code=authcode(ThisDevice), type=3)
+ThisDevice.HmdEnableAuth(3, dk_calculation.getresult(prjcode=product, serialnumber=psn, securityversion=secver, auth_code=authcode(ThisDevice))
+
+# Check Enabled Permissions
+print(getperm(ThisDevice))
 ```
 
 
