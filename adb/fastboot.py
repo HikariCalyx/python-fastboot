@@ -19,6 +19,7 @@ import io
 import logging
 import os
 import struct
+import base64
 
 from adb import common
 from adb import usb_exceptions
@@ -404,6 +405,105 @@ class FastbootCommands(object):
           Value of var according to the current bootloader.
         """
         return self._SimpleCommand(b'getvar', arg=var, info_cb=info_cb)
+
+    def CreateSparseIMGTable(self, simgpath, timeout_ms=None, info_cb=DEFAULT_MESSAGE_CALLBACK):
+        """Returns how a sparse image file should be separated.
+
+        Args:
+          simgpath: Path of a sparse image file that is going to be flashed to a device.
+
+        Returns:
+          A list of offsets where the sparse image file should be separated.
+        """
+        mds = self._SimpleCommand(b'getvar', arg='max-download-size', info_cb=info_cb).decode('utf-8')
+        pass
+
+    # OEM Exclusive Fastboot Implementations.
+    def FihWriteVeracity(self, veracity, timeout_ms=None, info_cb=DEFAULT_MESSAGE_CALLBACK):
+        """Writes authentication code from FIHSW models.
+
+        ***CAUTION: This function only supports Nokia and Sharp Smartphones released by FIH Mobile! ***
+
+        Args:
+          veracity: the veracity challenge code returned from server, 
+          Expected type: str or raw bytes
+          timeout_ms: Optional timeout in milliseconds to wait for it to finish.
+          info_cb: See Download. Usually no messages.
+        """
+        if len(veracity) == 344: 
+            if type(veracity) == str:
+                veracityBin = base64.b64decode(veracity.encode('utf-8'))
+            elif type(veracity) == bytes:
+                veracityBin = base64.b64decode(veracity)
+        elif len(veracity) == 256:
+            if type(veracity) == str:
+                veracityBin = veracity.encode('utf-8')
+            elif type(veracity) == bytes:
+                veracityBin = veracity
+        else:
+            raise Exception('InvalidResponseLengthException')
+        self._protocol.SendCommand(b'download', b'%08x' % len(veracityBin))
+        self._protocol.HandleDataSending(veracityBin, len(veracityBin))
+        return self._SimpleCommand(b'flash', arg='veracity', info_cb=info_cb,
+                                timeout_ms=timeout_ms)
+    
+    def FihWriteEncUID(self, encUID, timeout_ms=None, info_cb=DEFAULT_MESSAGE_CALLBACK):
+        """Writes encUID from FIHSW models.
+
+        ***CAUTION: This function only supports Nokia and Sharp Smartphones released by FIH Mobile! ***
+
+        Args:
+          encUID: the encUID code returned from server, 
+          Expected type: str or raw bytes
+          timeout_ms: Optional timeout in milliseconds to wait for it to finish.
+          info_cb: See Download. Usually no messages.
+        """
+        if len(encUID) == 344: 
+            if type(encUID) == str:
+                encUIDBin = base64.b64decode(encUID.encode('utf-8'))
+            elif type(encUID) == bytes:
+                encUIDBin = base64.b64decode(encUID)
+        elif len(encUID) == 256:
+            if type(encUID) == str:
+                encUIDBin = encUID.encode('utf-8')
+            elif type(encUID) == bytes:
+                encUIDBin = encUID
+        else:
+            raise Exception('InvalidResponseLengthException')
+        self._protocol.SendCommand(b'download', b'%08x' % len(encUIDBin))
+        self._protocol.HandleDataSending(encUIDBin, len(encUIDBin))
+        self._protocol.SendCommand(b'flash', b'encUID')
+        self._protocol.SendCommand(b'oem selectKey service')
+        return self._SimpleCommand(
+            b'oem doKeyVerify', timeout_ms=timeout_ms, info_cb=info_cb)
+
+    def FihWriteFPK(self, FPK, timeout_ms=None, info_cb=DEFAULT_MESSAGE_CALLBACK):
+        """Writes authentication code from FIHSW models.
+
+        ***CAUTION: This function only supports Nokia and Sharp Smartphones released by FIH Mobile! ***
+
+        Args:
+          FPK: the FPK challenge code returned from server, 
+          Expected type: str or raw bytes
+          timeout_ms: Optional timeout in milliseconds to wait for it to finish.
+          info_cb: See Download. Usually no messages.
+        """
+        if len(FPK) == 344: 
+            if type(FPK) == str:
+                FPKBin = base64.b64decode(FPK.encode('utf-8'))
+            elif type(FPK) == bytes:
+                FPKBin = base64.b64decode(FPK)
+        elif len(FPK) == 256:
+            if type(FPK) == str:
+                FPKBin = FPK.encode('utf-8')
+            elif type(FPK) == bytes:
+                FPKBin = FPK
+        else:
+            raise Exception('InvalidResponseLengthException')
+        self._protocol.SendCommand(b'download', b'%08x' % len(FPKBin))
+        self._protocol.HandleDataSending(FPKBin, len(FPKBin))
+        return self._SimpleCommand(b'flash', arg='FPK', info_cb=info_cb,
+                                timeout_ms=timeout_ms)
 
     def HmdAuthStart(self, timeout_ms=None):
         """Gets authentication code from HMDSW models.
