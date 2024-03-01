@@ -104,6 +104,19 @@ class FastbootProtocol(object):
         """
         return self._AcceptResponses(b'OKAY', info_cb, timeout_ms=timeout_ms)
     
+    def HandleInfoResponses(
+            self, timeout_ms=None, info_cb=DEFAULT_MESSAGE_CALLBACK):
+        """Accepts normal responses from the device.
+
+        Args:
+          timeout_ms: Timeout in milliseconds to wait for each response.
+          info_cb: Optional callback for text sent from the bootloader.
+
+        Returns:
+          INFO packet's message.
+        """
+        return self._AcceptOemInfoResponses(b'OKAY', info_cb, timeout_ms=timeout_ms)
+    
     def HandleHmdResponses(
             self, timeout_ms=None, info_cb=DEFAULT_MESSAGE_CALLBACK):
         """Accepts Hmd responses from the device.
@@ -191,7 +204,48 @@ class FastbootProtocol(object):
             else:
                 raise FastbootInvalidResponse(
                     'Got unknown header %s and response %s', header, remaining)
-                
+
+    def _AcceptOemInfoResponses(self, expected_header, info_cb, timeout_ms=None):
+        """Accepts responses until the expected header or a FAIL.
+
+        Args:
+          expected_header: OKAY or DATA
+          info_cb: Optional callback for text sent from the bootloader.
+          timeout_ms: Timeout in milliseconds to wait for each response.
+
+        Raises:
+          FastbootStateMismatch: Fastboot responded with the wrong packet type.
+          FastbootRemoteFailure: Fastboot reported failure.
+          FastbootInvalidResponse: Fastboot responded with an unknown packet type.
+
+        Returns:
+          A list with OEM command info.
+        """
+        list = []
+        while True:
+            response = self.usb.BulkRead(64, timeout_ms=timeout_ms)
+            header = bytes(response[:4])
+            remaining = bytes(response[4:])
+
+            if header == b'INFO':
+                list += [remaining.decode('utf-8')]
+            elif header in self.FINAL_HEADERS:
+                if header != expected_header:
+                    raise FastbootStateMismatch(
+                        'Expected %s, got %s', expected_header, header)
+                if header == b'OKAY':
+                    info_cb(FastbootMessage(remaining, header))
+                if len(list) <= 1:
+                    return list[0]
+                else:
+                    return list
+            elif header == b'FAIL':
+                info_cb(FastbootMessage(remaining, header))
+                raise FastbootRemoteFailure('FAIL: %s', remaining)
+            else:
+                raise FastbootInvalidResponse(
+                    'Got unknown header %s and response %s', header, remaining)
+
     def _AcceptHmdAuthStartResponses(self, length, timeout_ms=None):
         """Accepts responses from HMD Auth Start Command.
 
@@ -310,6 +364,10 @@ class FastbootCommands(object):
     def _SimpleCommand(self, command, arg=None, **kwargs):
         self._protocol.SendCommand(command, arg)
         return self._protocol.HandleSimpleResponses(**kwargs)
+    
+    def _SimpleOemInfoCommand(self, command, arg=None, **kwargs):
+        self._protocol.SendCommand(command, arg)
+        return self._protocol.HandleInfoResponses(**kwargs)
     
     def _HmdAuthStartCommand(self, command, arg=None, **kwargs):
         self._protocol.SendCommand(command, arg)
@@ -582,6 +640,22 @@ class FastbootCommands(object):
         if not isinstance(command, bytes):
             command = command.encode('utf8')
         return self._SimpleCommand(
+            b'oem %s' % command, timeout_ms=timeout_ms, info_cb=info_cb)
+    
+    def OemInfo(self, command, timeout_ms=None, info_cb=DEFAULT_MESSAGE_CALLBACK):
+        """Executes an OEM command on the device.
+
+        Args:
+          command: Command to execute, such as 'poweroff' or 'bootconfig read'.
+          timeout_ms: Optional timeout in milliseconds to wait for a response.
+          info_cb: See Download. Messages vary based on command.
+
+        Returns:
+          The final response from the device with header b'INFO'.
+        """
+        if not isinstance(command, bytes):
+            command = command.encode('utf8')
+        return self._SimpleOemInfoCommand(
             b'oem %s' % command, timeout_ms=timeout_ms, info_cb=info_cb)
 
     def Continue(self):
