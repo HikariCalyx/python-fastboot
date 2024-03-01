@@ -32,7 +32,7 @@ FastbootMessage = collections.namedtuple(  # pylint: disable=invalid-name
 
 # From fastboot.c
 VENDORS = {0x18D1, 0x0451, 0x0502, 0x0FCE, 0x05C6, 0x22B8, 0x0955,
-           0x413C, 0x2314, 0x0BB4, 0x8087}
+           0x413C, 0x2314, 0x0BB4, 0x8087, 0x0489, 0x2E04, 0x0E8D}
 CLASS = 0xFF
 SUBCLASS = 0x42
 PROTOCOL = 0x03
@@ -372,6 +372,33 @@ class FastbootCommands(object):
             return self._protocol.HandleDataSending(
                 source_file, source_len, info_cb, progress_callback=progress_callback)
 
+    def ByteDownload(self, bytes_data, source_len=0,
+                 info_cb=DEFAULT_MESSAGE_CALLBACK, progress_callback=None):
+        """Downloads a bytes-type value into device. Only recommended for relatively smaller files.
+
+        Args:
+          bytes_data: A bytes variable, data or bytearray.
+              e.g. b'\x00\x01\x02\x03' or bytearray(b'\x00\x01\x02\x03').
+          source_len: Optional length of source_file. If source_len is not provided, 
+              it will be calculated based on bytes_data.
+          info_cb: Optional callback accepting FastbootMessage for text sent from
+              the bootloader.
+          progress_callback: Optional callback called with the percent of the
+              source_file downloaded. Note, this doesn't include progress of the
+              actual flashing.
+
+        Returns:
+          Response to a download request, normally nothing.
+        """
+        if not type(bytes_data) in [bytes, bytearray]:
+            raise Exception('InvalidTypeException')
+        mds = int(self._SimpleCommand(b'getvar', arg='max-download-size', info_cb=info_cb).decode('utf-8'), 16)
+        if len(bytes_data) > mds:
+            raise Exception('ByteExceedsMaxDownloadSizeException')
+        self._protocol.SendCommand(b'download', b'%08x' % len(bytes_data))
+        return self._protocol.HandleDataSending(
+                bytes_data, source_len, info_cb, progress_callback=progress_callback)
+
     def Flash(self, partition, timeout_ms=0, info_cb=DEFAULT_MESSAGE_CALLBACK):
         """Flashes the last downloaded file to the given partition.
 
@@ -415,7 +442,7 @@ class FastbootCommands(object):
         Returns:
           A list of offsets where the sparse image file should be separated.
         """
-        mds = self._SimpleCommand(b'getvar', arg='max-download-size', info_cb=info_cb).decode('utf-8')
+        mds = int(self._SimpleCommand(b'getvar', arg='max-download-size', info_cb=info_cb).decode('utf-8'), 16)
         pass
 
     # OEM Exclusive Fastboot Implementations.
