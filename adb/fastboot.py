@@ -285,7 +285,7 @@ class FastbootProtocol(object):
             next(progress)
         while length:
             # Workaround for HMDSW features.
-            if type(data) == bytes and len(data) <= 1048576:
+            if type(data) == bytes:
                 tmp = data
             else:
                 tmp = data.read(self.chunk_kb * 1024)
