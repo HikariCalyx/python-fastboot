@@ -451,6 +451,8 @@ class FastbootCommands(object):
         if not type(bytes_data) in [bytes, bytearray]:
             raise Exception('InvalidTypeException')
         mds = int(self._SimpleCommand(b'getvar', arg='max-download-size', info_cb=info_cb).decode('utf-8'), 16)
+        if source_len == 0:
+            source_len = len(bytes_data)
         if len(bytes_data) > mds:
             raise Exception('ByteExceedsMaxDownloadSizeException')
         self._protocol.SendCommand(b'download', b'%08x' % len(bytes_data))
