@@ -101,7 +101,7 @@ def main():
         return 0
 
     kwargs = {}
-    argspec = inspect.getargspec(args.method)
+    argspec = inspect.getfullargspec(args.method)
     if 'info_cb' in argspec.args:
         kwargs['info_cb'] = _InfoCb
     if 'progress_callback' in argspec.args and progressbar:

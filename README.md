@@ -1,8 +1,6 @@
 python-adb
 ==========
 
-**WARNING: This library is incompatible with Python 3.11 or newer due to breaking changes on ```inspect``` module. Please use this library along with Python 3.7 - 3.10. Contributions of fixing compatibility with Python 3.11 or newer is appreciated.**
-
 [![Coverage Status][coverage_img]][coverage_link]
 
 This is a modified version for specific project usage - for example, service permission granting program for all Nokia phones.

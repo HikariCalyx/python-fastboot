@@ -93,7 +93,7 @@ def MakeSubparser(subparsers, parents, method, arguments=None):
     subparser = subparsers.add_parser(
         name=name, description=help, help=help.rstrip('.'), parents=parents)
     subparser.set_defaults(method=method, positional=[])
-    argspec = inspect.getargspec(method)
+    argspec = inspect.getfullargspec(method)
 
     # Figure out positionals and default argument, if any. Explicitly includes
     # arguments that default to '' but excludes arguments that default to None.
