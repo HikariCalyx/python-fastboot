@@ -402,6 +402,8 @@ class FastbootCommands(object):
         """Wait a Fastboot device from usb path or serial.
 
         Args:
+          isFih: If the device is manufactured by FIH Mobile. If so, it will attempt to execute
+                "oem alive" command so the device could stay at Fastboot mode.
           port_path: The filename of usb port to use.
           serial: The serial number of the device to use.
           default_timeout_ms: The default timeout in milliseconds to use.
@@ -437,7 +439,7 @@ class FastbootCommands(object):
             try:
                 self._SimpleCommand(b'oem alive')
             except:
-                print('NotFihDevice')
+                pass
 
     def Download(self, source_file, source_len=0,
                  info_cb=DEFAULT_MESSAGE_CALLBACK, progress_callback=None):
