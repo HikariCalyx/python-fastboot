@@ -534,8 +534,16 @@ class FastbootCommands(object):
 
         Returns:
           Value of var according to the current bootloader.
+          If the var is all, the result will be output as a dict.
         """
-        return self._SimpleCommand(b'getvar', arg=var, info_cb=info_cb)
+        if var=='all':
+            getvar_all = self._SimpleOemInfoCommand(b'getvar all', info_cb=info_cb)
+            getvar_dict = {}
+            for i in getvar_all:
+                getvar_dict.update({i.split(': ')[0]: i.split(': ')[1]})
+            return getvar_dict
+        else:
+            return self._SimpleCommand(b'getvar', arg=var, info_cb=info_cb)
     
     def SetActive(self, var, info_cb=DEFAULT_MESSAGE_CALLBACK):
         """Switches current boot slot.
@@ -721,7 +729,7 @@ class FastbootCommands(object):
                 return b'UsbTrafficFailure'
         return self._HmdAuthStartCommand(b'upload')
     
-    def HmdEnableAuth(self, permType, AuthResult, info_cb=DEFAULT_MESSAGE_CALLBACK, progress_callback=None, timeout_ms=None):
+    def HmdEnableAuth(self, permType, AuthResult, info_cb=DEFAULT_MESSAGE_CALLBACK, timeout_ms=None):
         """Writes authentication code from HMDSW models.
 
         ***CAUTION: This function only supports Nokia Smartphones released since mid-2019! ***
@@ -753,6 +761,54 @@ class FastbootCommands(object):
                 return b'NotHmdDevice'
             else:
                 return b'UsbTrafficFailure'
+
+    def MonkeyOemUnlock(self, token_hex, info_cb=DEFAULT_MESSAGE_CALLBACK, timeout_ms=None):
+        """Writes bootloader unlock signature from Monkey server.
+
+        ***CAUTION: This function only supports Monkey brand smartphones! ***
+
+        Args:
+          token_hex: the hex value returned from Monkey server.
+        """
+        if self.IsFastbootd():
+            raise Exception('DeviceUnderFastbootd')
+        token_bin = bytes.fromhex(token_hex)
+        token_len = len(token_bin)
+        self._protocol.SendCommand(b'download', b'%08x' % token_len)
+        self._protocol.HandleDataSending(token_bin, token_len)
+        try:
+            return self._SimpleCommand(
+                b'oem unlock', timeout_ms=timeout_ms, info_cb=info_cb)
+        except FastbootRemoteFailure as f:
+                return f
+        
+    def LenGetUnlockData(self, info_cb=DEFAULT_MESSAGE_CALLBACK, timeout_ms=None):
+        """Reads unlock data from a Len smartphone with market model started by XT.
+
+        ***CAUTION: This function only supports Len smartphones! ***
+
+        Args:
+          None
+
+        Returns:
+          If the phone meets requirement, will return unlock data for this phone. 
+          Otherwise no valid data will be returned.
+        """
+        try:
+            RawOutput = self._SimpleOemInfoCommand(
+                b'oem get_unlock_data', timeout_ms=timeout_ms, info_cb=info_cb)
+        except FastbootRemoteFailure as f:
+            if 'unknown command' in str(f):
+                return b'NotLenDevice'
+            else:
+                return b'UsbTrafficFailure'
+        if 'Failed to get unlock data.' in RawOutput:
+            return 'UnableToFetchUnlockData'
+        else:
+            unlockData = ''
+            for i in RawOutput[1:]:
+                unlockData += i
+            return unlockData
 
     def Oem(self, command, timeout_ms=None, info_cb=DEFAULT_MESSAGE_CALLBACK):
         """Executes an OEM command on the device.
