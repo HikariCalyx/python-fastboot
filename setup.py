@@ -34,16 +34,18 @@ except ImportError:
 setup(
     name = 'adb',
     packages = ['adb'],
-    version = '1.3.0',
-    author = 'Fahrzin Hemmati',
-    author_email = 'fahhem@gmail.com',
-    maintainer = 'Fahrzin Hemmati',
+    version = '1.3.5',
+    author = 'Hikari Calyx',
+    author_email = 'hikaricalyx@hikaricalyx.com',
+    maintainer = 'Hikari Calyx',
     maintainer_email = 'fahhem@google.com',
-    url = 'https://github.com/google/python-adb',
+    url = 'https://github.com/HikariCalyx/python-adb',
     description = 'A pure python implementation of the Android ADB and Fastboot protocols',
     long_description = '''
 This repository contains a pure-python implementation of the Android
 ADB and Fastboot protocols, using libusb1 for USB communications.
+
+Additionally, support for specific OEM commands were added.
 
 This is a complete replacement and rearchitecture of the Android
 project's ADB and fastboot code available at
