@@ -20,6 +20,7 @@ import logging
 import os
 import struct
 import base64
+import time
 
 from adb import common
 from adb import usb_exceptions
@@ -235,7 +236,7 @@ class FastbootProtocol(object):
                         'Expected %s, got %s', expected_header, header)
                 if header == b'OKAY':
                     info_cb(FastbootMessage(remaining, header))
-                if len(list) <= 1:
+                if len(list) == 1:
                     return list[0]
                 else:
                     return list
@@ -396,6 +397,47 @@ class FastbootCommands(object):
             progress_callback=progress_callback)
         flash_response = self.Flash(partition, info_cb=info_cb)
         return download_response + flash_response
+    
+    def WaitForDevice(self, isFih=False, port_path=None, serial=None, default_timeout_ms=None, chunk_kb=1024, **kwargs):
+        """Wait a Fastboot device from usb path or serial.
+
+        Args:
+          port_path: The filename of usb port to use.
+          serial: The serial number of the device to use.
+          default_timeout_ms: The default timeout in milliseconds to use.
+          chunk_kb: Amount of data, in kilobytes, to break fastboot packets up into
+          kwargs: handle: Device handle to use (instance of common.TcpHandle or common.UsbHandle)
+                  banner: Connection banner to pass to the remote device
+                  rsa_keys: List of AuthSigner subclass instances to be used for
+                      authentication. The device can either accept one of these via the Sign
+                      method, or we will send the result of GetPublicKey from the first one
+                      if the device doesn't accept any of them.
+                  auth_timeout_ms: Timeout to wait for when sending a new public key. This
+                      is only relevant when we send a new public key. The device shows a
+                      dialog and this timeout is how long to wait for that dialog. If used
+                      in automation, this should be low to catch such a case as a failure
+                      quickly; while in interactive settings it should be high to allow
+                      users to accept the dialog. We default to automation here, so it's low
+                      by default.
+
+        If serial specifies a TCP address:port, then a TCP connection is
+        used instead of a USB connection.
+        """
+        print('-- Waiting for device --')
+        while True:
+            try:
+                self.ConnectDevice(port_path=port_path, serial=serial, default_timeout_ms=default_timeout_ms, chunk_kb=chunk_kb, **kwargs)
+            except:
+                time.sleep(0.1)
+                continue
+            break
+        psn = self.Getvar('serialno').decode('utf-8')
+        print('-- Device %s Connected --' % psn)
+        if isFih:
+            try:
+                self._SimpleCommand(b'oem alive')
+            except:
+                print('NotFihDevice')
 
     def Download(self, source_file, source_len=0,
                  info_cb=DEFAULT_MESSAGE_CALLBACK, progress_callback=None):
@@ -492,6 +534,42 @@ class FastbootCommands(object):
           Value of var according to the current bootloader.
         """
         return self._SimpleCommand(b'getvar', arg=var, info_cb=info_cb)
+    
+    def SetActive(self, var, info_cb=DEFAULT_MESSAGE_CALLBACK):
+        """Switches current boot slot.
+
+        Args:
+          var: Define the current boot slot. Valid values are:
+          'a', 'b', 'other'
+          info_cb: See Download. Usually no messages.
+
+        Returns:
+          Value of var according to the current bootloader.
+        """
+        current_slot = self._SimpleCommand(b'getvar', arg='current-slot')
+        if len(current_slot) == 0:
+            return 'Device is not A/B or the fastboot cannot handle slot switching operation'
+        if var in ['a', 'b']:
+            return self._SimpleCommand(b'set_active', arg=var, info_cb=info_cb)
+        elif var == 'other':
+            if b'a' in current_slot:
+                return self._SimpleCommand(b'set_active', arg='b', info_cb=info_cb)
+            else:
+                return self._SimpleCommand(b'set_active', arg='a', info_cb=info_cb)
+        else:
+            raise Exception('InvalidBootSlot')
+    
+    def IsFastbootd(self, info_cb=DEFAULT_MESSAGE_CALLBACK):
+        """Returns the result about if the device is under Fastbootd instead of actual bootloader.
+
+        Returns:
+          True if under Fastbootd. False if not.
+        """
+        isUserspace = self._SimpleCommand(b'getvar', arg='is-userspace', info_cb=info_cb)
+        if isUserspace == b'yes':
+            return True
+        else:
+            return False
 
     def CreateSparseIMGTable(self, simgpath, timeout_ms=None, info_cb=DEFAULT_MESSAGE_CALLBACK):
         """Returns how a sparse image file should be separated.
@@ -506,6 +584,30 @@ class FastbootCommands(object):
         pass
 
     # OEM Exclusive Fastboot Implementations.
+    def FihGetversionsDict(self, timeout_ms=None, info_cb=DEFAULT_MESSAGE_CALLBACK):
+        """Reads oem getversions result into dict.
+
+        ***CAUTION: This function only supports Nokia and Sharp Smartphones released by FIH Mobile and few HMD devices! ***
+
+        Args:
+          timeout_ms: Optional timeout in milliseconds to wait for it to finish.
+          info_cb: See Download. Usually no messages.
+
+        Returns:
+          A dict consist of getversions result.
+        """
+        if self.IsFastbootd():
+            raise Exception('DeviceUnderFastbootd')
+        try:
+            rawResult = self._SimpleOemInfoCommand(b'oem getversions', timeout_ms=timeout_ms, info_cb=info_cb)
+        except FastbootRemoteFailure as f:
+            if 'unknown command' in str(f):
+                return 'NotFihDevice'
+        FihDict = {}
+        for i in rawResult:
+            FihDict.update({i.split('=')[0]: i.split('=')[1]})
+        return FihDict
+
     def FihWriteVeracity(self, veracity, timeout_ms=None, info_cb=DEFAULT_MESSAGE_CALLBACK):
         """Writes authentication code from FIHSW models.
 
@@ -517,6 +619,8 @@ class FastbootCommands(object):
           timeout_ms: Optional timeout in milliseconds to wait for it to finish.
           info_cb: See Download. Usually no messages.
         """
+        if self.IsFastbootd():
+            raise Exception('DeviceUnderFastbootd')
         if len(veracity) == 344: 
             if type(veracity) == str:
                 veracityBin = base64.b64decode(veracity.encode('utf-8'))
@@ -545,6 +649,8 @@ class FastbootCommands(object):
           timeout_ms: Optional timeout in milliseconds to wait for it to finish.
           info_cb: See Download. Usually no messages.
         """
+        if self.IsFastbootd():
+            raise Exception('DeviceUnderFastbootd')
         if len(encUID) == 344: 
             if type(encUID) == str:
                 encUIDBin = base64.b64decode(encUID.encode('utf-8'))
@@ -575,6 +681,8 @@ class FastbootCommands(object):
           timeout_ms: Optional timeout in milliseconds to wait for it to finish.
           info_cb: See Download. Usually no messages.
         """
+        if self.IsFastbootd():
+            raise Exception('DeviceUnderFastbootd')
         if len(FPK) == 344: 
             if type(FPK) == str:
                 FPKBin = base64.b64decode(FPK.encode('utf-8'))
@@ -600,7 +708,15 @@ class FastbootCommands(object):
         Args:
           None
         """
-        self._SimpleCommand(b'oem auth_start', timeout_ms=timeout_ms)
+        if self.IsFastbootd():
+            raise Exception('DeviceUnderFastbootd')
+        try:
+            self._SimpleCommand(b'oem auth_start', timeout_ms=timeout_ms)
+        except FastbootRemoteFailure as f:
+            if 'unknown command' in str(f):
+                return b'NotHmdDevice'
+            else:
+                return b'UsbTrafficFailure'
         return self._HmdAuthStartCommand(b'upload')
     
     def HmdEnableAuth(self, permType, AuthResult, info_cb=DEFAULT_MESSAGE_CALLBACK, progress_callback=None, timeout_ms=None):
@@ -617,6 +733,8 @@ class FastbootCommands(object):
             1: b'flash',
             3: b'repair'
         }
+        if self.IsFastbootd():
+            raise Exception('DeviceUnderFastbootd')
         if permType not in permissionType:
             raise Exception('InvalidPermissionTypeException')
         if not len(AuthResult) == 344:
@@ -625,8 +743,14 @@ class FastbootCommands(object):
         AuthResultLen = len(AuthResult)
         self._protocol.SendCommand(b'download', b'%08x' % AuthResultLen)
         self._protocol.HandleDataSending(AuthResultBin, AuthResultLen)
-        return self._SimpleCommand(
-            b'oem permission ' + permissionType[permType], timeout_ms=timeout_ms, info_cb=info_cb)
+        try:
+            return self._SimpleCommand(
+                b'oem permission ' + permissionType[permType], timeout_ms=timeout_ms, info_cb=info_cb)
+        except FastbootRemoteFailure as f:
+            if 'unknown command' in str(f):
+                return b'NotHmdDevice'
+            else:
+                return b'UsbTrafficFailure'
 
     def Oem(self, command, timeout_ms=None, info_cb=DEFAULT_MESSAGE_CALLBACK):
         """Executes an OEM command on the device.
@@ -659,6 +783,24 @@ class FastbootCommands(object):
             command = command.encode('utf8')
         return self._SimpleOemInfoCommand(
             b'oem %s' % command, timeout_ms=timeout_ms, info_cb=info_cb)
+    
+    def Flashing(self, command, timeout_ms=None, info_cb=DEFAULT_MESSAGE_CALLBACK):
+        """Executes a Flashing command on the device.
+
+        Args:
+          command: Command to execute, such as 'unlock_critical' or 'get_unlock_ability'.
+          timeout_ms: Optional timeout in milliseconds to wait for a response.
+          info_cb: See Download. Messages vary based on command.
+
+        Returns:
+          The final response from the device with header b'INFO'.
+        """
+        if self.IsFastbootd():
+            raise Exception('DeviceUnderFastbootd')
+        if not isinstance(command, bytes):
+            command = command.encode('utf8')
+        return self._SimpleOemInfoCommand(
+            b'flashing %s' % command, timeout_ms=timeout_ms, info_cb=info_cb)
 
     def Continue(self):
         """Continues execution past fastboot into the system."""
@@ -682,3 +824,6 @@ class FastbootCommands(object):
         """Reboots into the bootloader, usually equiv to Reboot('bootloader')."""
         return self._SimpleCommand(b'reboot-bootloader', timeout_ms=timeout_ms)
 
+    def HmdRebootEdl(self, timeout_ms=None):
+        """Reboots into the emergency download mode for HMDSW models, usually equiv to Reboot('bootloader')."""
+        return self._SimpleCommand(b'reboot-emergency', timeout_ms=timeout_ms)
