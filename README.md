@@ -1,8 +1,6 @@
 python-adb
 ==========
 
-[![Coverage Status][coverage_img]][coverage_link]
-
 This is a modified version for specific project usage - for example, service permission granting program for all Nokia phones.
 
 For ADB implementation, see [adb_shell](https://github.com/JeffLIrion/adb_shell).
