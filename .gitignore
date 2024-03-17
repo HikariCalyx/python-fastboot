@@ -7,3 +7,6 @@ adb.egg-info/
 /fastboot.zip
 .idea/
 *.DS_Store*
+dist/
+*.egg-info/
+pyproject.toml
