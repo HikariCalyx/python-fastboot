@@ -86,7 +86,11 @@ def FlagVbmeta(vbmeta_file, DisableVerity=True, DisableVerification=True):
         Flag = b'\3'
     elif not DisableVerity and DisableVerification:
         Flag = b'\2'
-    elif DisableVerity and
+    elif DisableVerity and not DisableVerification:
+        Flag = b'\1'
+    else:
+        Flag = b'\0'
+    return
 
 def FlagVbmetaBytes(vbmeta_bytes, DisableVerity=True, DisableVerification=True):
     """
@@ -105,4 +109,12 @@ def FlagVbmetaBytes(vbmeta_bytes, DisableVerity=True, DisableVerification=True):
       Bytearray of vbmeta with either DisableVerity or DisableVerification flag
       applied depends on the preferences.
     """
-    pass
+    if DisableVerity and DisableVerification:
+        Flag = b'\3'
+    elif not DisableVerity and DisableVerification:
+        Flag = b'\2'
+    elif DisableVerity and not DisableVerification:
+        Flag = b'\1'
+    else:
+        Flag = b'\0'
+    return

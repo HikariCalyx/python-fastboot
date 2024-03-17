@@ -22,8 +22,8 @@ import struct
 import base64
 import time
 
-from adb import common
-from adb import usb_exceptions
+from pyfastboot import common
+from pyfastboot import usb_exceptions
 
 _LOG = logging.getLogger('fastboot')
 
@@ -809,6 +809,41 @@ class FastbootCommands(object):
             for i in RawOutput[1:]:
                 unlockData += i
             return unlockData
+        
+    def GetIdentifierToken(self, info_cb=DEFAULT_MESSAGE_CALLBACK, timeout_ms=None):
+        """Reads identifier token from a HTC or Unisoc device.
+
+        Args:
+          None
+
+        Returns:
+          For unisoc models, will return the identifier token string, 
+          without "Identifier Token: " title.
+          For HTC models, will return the identifier token as list,
+          without "Please cut following message" title.
+          For other cases - if unknown command then will return NotHTCorUnisocDevice.
+          If other outputs then will return other results.
+        """
+        try:
+            RawOutput = self._SimpleOemInfoCommand(
+                b'oem get_identifier', timeout_ms=timeout_ms, info_cb=info_cb)
+        except FastbootRemoteFailure as f:
+            if 'unknown command' in str(f):
+                return b'NotHTCorUnisocDevice'
+            else:
+                return b'UsbTrafficFailure'
+        if '<<<< Identifier Token Start >>>>' in RawOutput: # HTC
+            htcIdentifierToken = []
+            for i in RawOutput[2:]:
+                htcIdentifierToken += i
+            return htcIdentifierToken
+        elif 'Identifier token:' in RawOutput: #Unisoc
+            unisocIdentifierToken = ''
+            for i in RawOutput[1:]:
+                unisocIdentifierToken += i
+            return unisocIdentifierToken
+        else:
+            return RawOutput
 
     def Oem(self, command, timeout_ms=None, info_cb=DEFAULT_MESSAGE_CALLBACK):
         """Executes an OEM command on the device.

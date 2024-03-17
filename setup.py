@@ -18,12 +18,12 @@ from setuptools import setup
 setup(
     name = 'pyfastboot',
     packages = ['pyfastboot'],
-    version = '1.3.5',
+    version = '1.3.6',
     author = 'Hikari Calyx',
     author_email = 'hikaricalyx@hikaricalyx.com',
     maintainer = 'Hikari Calyx',
     maintainer_email = 'hikaricalyx@hikaricalyx.com',
-    url = 'https://github.com/HikariCalyx/python-adb',
+    url = 'https://github.com/HikariCalyx/python-fastboot',
     description = 'A pure python implementation of the Android Fastboot protocols',
     long_description = '''
 This repository contains a pure-python implementation of the Android
@@ -56,7 +56,6 @@ testing.
         'Development Status :: 4 - Beta',
         'License :: OSI Approved :: Apache Software License',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 3',
         'Topic :: Software Development :: Testing'
     ],
