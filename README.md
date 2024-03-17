@@ -1,4 +1,4 @@
-python-adb
+pyfastboot
 ==========
 
 This is a modified version for specific project usage - for example, service permission granting program for all Nokia phones.
