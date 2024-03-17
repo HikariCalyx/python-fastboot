@@ -110,6 +110,11 @@ print(getperm(ThisDevice))
 
 ### History
 
+#### 1.3.6
+
+* Fixed dependencies bug
+* Added initial support of GetIdentifierToken function for HTC and Unisoc models
+
 #### 1.3.5
 
 * Renaming it into pyfastboot
