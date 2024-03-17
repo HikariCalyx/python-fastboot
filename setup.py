@@ -14,57 +14,37 @@
 
 from setuptools import setup
 
-# Figure out if the system already has a supported Crypto library
-rsa_signer_library = 'cryptography'
-try:
-  import rsa
-
-  rsa_signer_library = 'rsa'
-except ImportError:
-    try:
-        from Crypto.Hash import SHA256
-        from Crypto.PublicKey import RSA
-        from Crypto.Signature import pkcs1_15
-
-        rsa_signer_library = 'pycryptodome'
-    except ImportError:
-        pass
-
 
 setup(
-    name = 'adb',
-    packages = ['adb'],
+    name = 'pyfastboot',
+    packages = ['pyfastboot'],
     version = '1.3.5',
     author = 'Hikari Calyx',
     author_email = 'hikaricalyx@hikaricalyx.com',
     maintainer = 'Hikari Calyx',
-    maintainer_email = 'fahhem@google.com',
+    maintainer_email = 'hikaricalyx@hikaricalyx.com',
     url = 'https://github.com/HikariCalyx/python-adb',
-    description = 'A pure python implementation of the Android ADB and Fastboot protocols',
+    description = 'A pure python implementation of the Android Fastboot protocols',
     long_description = '''
 This repository contains a pure-python implementation of the Android
 ADB and Fastboot protocols, using libusb1 for USB communications.
 
-Additionally, support for specific OEM commands were added.
+Additionally, support for specific OEM commands were added, including Nokia, 
+Motorola, and Xiaomi.
 
 This is a complete replacement and rearchitecture of the Android
-project's ADB and fastboot code available at
+project's fastboot code available at
 https://github.com/android/platform_system_core/tree/master/adb
 
 This code is mainly targeted to users that need to communicate with
 Android devices in an automated fashion, such as in automated
-testing. It does not have a daemon between the client and the device,
-and therefore does not support multiple simultaneous commands to the
-same device. It does support any number of devices and never
-communicates with a device that it wasn't intended to, unlike the
-Android project's ADB.
+testing. 
 ''',
 
-    keywords = ['android', 'adb', 'fastboot'],
+    keywords = ['android', 'fastboot'],
 
     install_requires = [
-        'libusb1>=1.0.16',
-        rsa_signer_library
+        'libusb1>=1.0.16'
     ],
 
     extra_requires = {
@@ -82,8 +62,7 @@ Android project's ADB.
     ],
     entry_points={
         "console_scripts": [
-            "pyadb = adb.adb_debug:main",
-            "pyfastboot = adb.fastboot_debug:main",
+            "pyfastboot = pyfastboot.fastboot_debug:main",
         ],
     }
 
