@@ -110,7 +110,7 @@ print(getperm(ThisDevice))
 
 ### History
 
-#### 1.3.7
+#### 1.3.8
 
 * Added support for Unisoc "flashing unlock_bootloader" function (UnisocUnlockBootloader())
 * Added support for vbmeta processing
