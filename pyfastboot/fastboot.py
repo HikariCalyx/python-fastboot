@@ -832,15 +832,15 @@ class FastbootCommands(object):
                 return b'NotHTCorUnisocDevice'
             else:
                 return b'UsbTrafficFailure'
-        if '<<<< Identifier Token Start >>>>' or '<<<< Identifier Token Start >>>>\n' in RawOutput: # HTC
+        if '<<<< Identifier Token Start >>>>' in RawOutput or '<<<< Identifier Token Start >>>>\n' in RawOutput: # HTC
             htcIdentifierToken = []
             for i in RawOutput[2:]:
                 htcIdentifierToken += i
             return htcIdentifierToken
-        elif 'Identifier token:' or 'Identifer token:\n' in RawOutput: #Unisoc
+        elif 'Identifier token:' in RawOutput or 'Identifier token:\n' in RawOutput: #Unisoc
             unisocIdentifierToken = ''
             for i in RawOutput[1:]:
-                unisocIdentifierToken += i.rstrip()
+                unisocIdentifierToken += i.strip('\n')
             return unisocIdentifierToken
         else:
             return RawOutput
