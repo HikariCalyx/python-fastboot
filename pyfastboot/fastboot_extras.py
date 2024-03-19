@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from hashlib import sha256
+
 """
 Additional Implementations for Python-Fastboot
 """
@@ -46,6 +48,24 @@ class Constants(object):
         """
         return b'boot-recovery' + 51 * b'\0' + b'recovery\n--wipe_data\n' + 0x7AB * b'\0' + b'_b'
     
+    def image_oemunlock(self, length):
+        """
+        Generates partition image that could turn on OEM Unlocking in developer options.
+        Only usable when you grant flash permission by secret OEM commands.
+
+        Args:
+          length: The size of the image size you want, Unit is bytes. 
+          It needs to be divisible by 4,096.
+          If cannot be divisible by 4,096, a slightly bigger file will be generated.
+
+        Returns:
+          Raw bytes that based on the length you provides.
+        """
+        if length % 4096 > 0:
+            length = (length // 4096 + 1) * 4096
+        sha256sum = bytes.fromhex(sha256((length - 1) * b'\0' + b'\1').hexdigest())
+        return sha256sum + (length - 33) * b'\0' + b'\1'
+    
     def frp_oemunlock(self):
         """
         The frp partition that could turn on OEM Unlocking in developer options.
@@ -53,7 +73,7 @@ class Constants(object):
 
         Size: 524,288 bytes (512KB)
         """
-        return b'\x40\xF5\xB6\x80\x53\x6B\xD7\x67\x53\xB2\xD9\x19\x79\x3E\x63\x66\x95\x5F\xB4\x38\x0E\xFE\xBF\xA5\x41\xDE\xD2\xD2\x29\xA4\xF5\x0F' + 0x7FFDF * b'\0' + b'\1'
+        return Constants.image_oemunlock(self, 524288)
     
     def config_oemunlock(self):
         """
@@ -62,7 +82,44 @@ class Constants(object):
 
         Size: 32,768 bytes (32KB)
         """
-        return b'\x09\xF9\x72\x9B\x31\x66\x9C\x63\xF2\xD8\x5F\x13\xAE\x9B\xF5\x39\x79\xCF\xBA\x43\x17\xB9\x9C\xB2\xFB\x76\x37\xC8\x89\x5E\x3E\x2A' + 0x7FDF * b'\0' + b'\1'
+        return Constants.image_oemunlock(self, 32768)
+    
+    def mkfs(self, size, filesystem='e2fs'):
+        """
+        Creates the formatted partition image for flashing.
+
+        Args:
+          size: The partition size, Unit is bytes.
+                It needs to be divisible by 4,096.
+                If cannot be divisible by 4,096, a slightly bigger file will be generated.
+          filesystem: Desired formatted filesystem, default is e2fs. Can also specify fat, fat32, f2fs.
+
+        Returns:
+          Formatted sparse image in bytearray form.
+
+        It should be used altogether with Erase, ByteDownload function. Example:
+
+        from pyfastboot import fastboot
+        from pyfastboot import fastboot_extras as fe
+
+        device = fastboot.FastbootCommands()
+        device.ConnectDevice()
+        device.Erase('userdata')
+        try:
+            device.ByteDownload(
+                fe.Constants.mkfs(
+                    int(device.Getvar(partition-size:userdata).decode('utf-8')), 
+                    filesystem=device.Getvar(partition-type:userdata).decode('utf-8')
+                )
+            device.Flash('userdata')
+        except Exception:
+            pass
+        """
+        if filesystem not in ['ext4', 'e2fs', 'f2fs', 'fat', 'fat32']:
+            raise Exception('NotValidFilesystemException')
+        pass
+   
+
 
 
 def FlagVbmeta(vbmeta_file, DisableVerity=True, DisableVerification=True):
@@ -81,16 +138,22 @@ def FlagVbmeta(vbmeta_file, DisableVerity=True, DisableVerification=True):
     Returns:
       Bytearray of vbmeta with either DisableVerity or DisableVerification flag
       applied depends on the preferences.
+
+    It should be used altogether with ByteDownload function. Example:
+    
+    from pyfastboot import fastboot
+    from pyfastboot import fastboot_extras as fe
+
+    device = fastboot.FastbootCommands()
+    device.ConnectDevice()
+    device.ByteDownload(fe.FlagVbmeta('/path/to/vbmeta.img', 
+        DisableVerity=True, DisableVerification=True))
+    device.Flash('vbmeta_a')
+
     """
-    if DisableVerity and DisableVerification:
-        Flag = b'\3'
-    elif not DisableVerity and DisableVerification:
-        Flag = b'\2'
-    elif DisableVerity and not DisableVerification:
-        Flag = b'\1'
-    else:
-        Flag = b'\0'
-    return
+    with open(vbmeta_file, 'rb') as f:
+        vbmeta = f.read()
+    return FlagVbmetaBytes(vbmeta, DisableVerity=DisableVerity, DisableVerification=DisableVerification)
 
 def FlagVbmetaBytes(vbmeta_bytes, DisableVerity=True, DisableVerification=True):
     """
@@ -99,8 +162,8 @@ def FlagVbmetaBytes(vbmeta_bytes, DisableVerity=True, DisableVerification=True):
     For vbmeta in actual file, use the function FlagVbmeta instead.
 
     Args:
-      vbmeta_bytes: The byte of bytearray of vbmeta file.
-        e.g. b'AVBh.......AVBf'
+      vbmeta_bytes: Raw bytes or bytearray of vbmeta file.
+        e.g. b'AVB0.......AVBf'
       DisableVerity: Is dm-verity supposed to be disabled. Disabled by default.
       DisableVerification: Is verification supposed to be disabled. 
                            Disabled by default.
@@ -108,6 +171,8 @@ def FlagVbmetaBytes(vbmeta_bytes, DisableVerity=True, DisableVerification=True):
     Returns:
       Bytearray of vbmeta with either DisableVerity or DisableVerification flag
       applied depends on the preferences.
+      
+    It should be used altogether with ByteDownload function.
     """
     if DisableVerity and DisableVerification:
         Flag = b'\3'
@@ -117,4 +182,9 @@ def FlagVbmetaBytes(vbmeta_bytes, DisableVerity=True, DisableVerification=True):
         Flag = b'\1'
     else:
         Flag = b'\0'
-    return
+    AVBf = vbmeta_bytes[len(vbmeta_bytes)-64:]
+    # rawImageLength = int(AVBf[0x10:0x14].hex(), 16)
+    AVB0ImageBeginOffset = int(AVBf[0x18:0x1C].hex(), 16)
+    vbmeta_part = vbmeta_bytes[0:123] + Flag + vbmeta_bytes[124:len(vbmeta_bytes)-64] + AVBf
+    vbmeta_bytes = vbmeta_bytes[0:AVB0ImageBeginOffset]
+    return vbmeta_bytes + vbmeta_part

@@ -110,10 +110,16 @@ print(getperm(ThisDevice))
 
 ### History
 
+#### 1.3.7
+
+* Added support for Unisoc "flashing unlock_bootloader" function (UnisocUnlockBootloader())
+* Added support for vbmeta processing
+* Fixed issue of GetIdentifierToken function
+
 #### 1.3.6
 
 * Fixed dependencies bug
-* Added initial support of GetIdentifierToken function for HTC and Unisoc models
+* Added initial support of GetIdentifierToken function for HTC and Unisoc models (GetIdentifierToken())
 
 #### 1.3.5
 

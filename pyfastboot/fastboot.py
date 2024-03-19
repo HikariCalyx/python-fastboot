@@ -826,24 +826,65 @@ class FastbootCommands(object):
         """
         try:
             RawOutput = self._SimpleOemInfoCommand(
-                b'oem get_identifier', timeout_ms=timeout_ms, info_cb=info_cb)
+                b'oem get_identifier_token', timeout_ms=timeout_ms, info_cb=info_cb)
         except FastbootRemoteFailure as f:
             if 'unknown command' in str(f):
                 return b'NotHTCorUnisocDevice'
             else:
                 return b'UsbTrafficFailure'
-        if '<<<< Identifier Token Start >>>>' in RawOutput: # HTC
+        if '<<<< Identifier Token Start >>>>' or '<<<< Identifier Token Start >>>>\n' in RawOutput: # HTC
             htcIdentifierToken = []
             for i in RawOutput[2:]:
                 htcIdentifierToken += i
             return htcIdentifierToken
-        elif 'Identifier token:' in RawOutput: #Unisoc
+        elif 'Identifier token:' or 'Identifer token:\n' in RawOutput: #Unisoc
             unisocIdentifierToken = ''
             for i in RawOutput[1:]:
-                unisocIdentifierToken += i
+                unisocIdentifierToken += i.rstrip()
             return unisocIdentifierToken
         else:
             return RawOutput
+        
+    def UnisocUnlockBootloader(self, token, info_cb=DEFAULT_MESSAGE_CALLBACK, timeout_ms=None):
+        """Unlocks bootloader of an Unisoc Device.
+
+        Args:
+          token: The bootloader unlock token bytes.
+        Can accept raw bytes / bytearray or string (but must be Base64 encoded)
+
+        Returns:
+          For unisoc models, will return unlock result in boolean (True / False)
+          For non unisoc models, unknown command then will return NotUnisocDevice.
+        """
+        if self.IsFastbootd():
+            raise Exception('DeviceUnderFastbootd')
+        try:
+            self._SimpleCommand(
+                b'oem get_identifier_token', timeout_ms=timeout_ms, info_cb=info_cb)
+        except FastbootRemoteFailure as f:
+            if 'unknown command' in str(f):
+                return b'NotUnisocDevice'
+            else:
+                return b'UsbTrafficFailure'
+        if type(token) == bytes:
+            self.ByteDownload(token)
+        elif type(token) == str:
+            try:
+                self.ByteDownload(base64.b64decode(token.encode('utf-8')))
+            except:
+                return b'NotValidBase64EncodedString'
+        try:
+            RawOutput = self._SimpleOemInfoCommand(
+                b'flashing unlock_bootloader', timeout_ms=timeout_ms, info_cb=info_cb)
+        except FastbootRemoteFailure as f:
+            if 'unknown command' in str(f):
+                return b'NotUnisocDevice'
+            elif 'Unlock bootloader fail' in str(f):
+                return False
+            else:
+                return b'UsbTrafficFailure'     
+            return True     
+            
 
     def Oem(self, command, timeout_ms=None, info_cb=DEFAULT_MESSAGE_CALLBACK):
         """Executes an OEM command on the device.
