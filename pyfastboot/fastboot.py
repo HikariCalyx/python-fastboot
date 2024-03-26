@@ -537,10 +537,22 @@ class FastbootCommands(object):
           If the var is all, the result will be output as a dict.
         """
         if var=='all':
-            getvar_all = self._SimpleOemInfoCommand(b'getvar all', info_cb=info_cb)
+            getvar_all = self._SimpleOemInfoCommand(b'getvar:all', info_cb=info_cb)
             getvar_dict = {}
             for i in getvar_all:
-                getvar_dict.update({i.split(': ')[0]: i.split(': ')[1]})
+                # For standard implementations
+                if ': ' in i and i.count(':') <= 2:
+                    getvar_dict.update({i.split(': ')[0]: i.split(': ')[1]})
+                else:
+                    if i.count(':') == 1:
+                        getvar_dict.update({i.split(':')[0]: i.split(':')[1]})
+                    # partition-size:[partname]:
+                    elif i.count(':') == 2:
+                        getvar_dict.update({i.rsplit(':', 2)[0]: i.rsplit(':', 2)[1]})
+                    # For non-standard variables:
+                    else:
+                        getvar_dict.update({i.split(':', 1)[0]: i.split(':', 1)[1]})
+                
             return getvar_dict
         else:
             return self._SimpleCommand(b'getvar', arg=var, info_cb=info_cb)

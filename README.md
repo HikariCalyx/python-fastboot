@@ -110,9 +110,10 @@ print(getperm(ThisDevice))
 
 ### History
 
-#### 1.3.9
+#### 1.3.10
 
-* Fixed the dependencies issue.
+* Fixed dependencies issue.
+* Fixed the Getvar function issue.
 
 #### 1.3.8
 

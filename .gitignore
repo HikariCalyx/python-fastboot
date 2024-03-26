@@ -10,3 +10,4 @@ adb.egg-info/
 dist/
 *.egg-info/
 pyproject.toml
+build/
