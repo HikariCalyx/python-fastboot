@@ -14,6 +14,7 @@
 # limitations under the License.
 
 from hashlib import sha256
+import json
 
 """
 Additional Implementations for Python-Fastboot
@@ -154,6 +155,24 @@ def FlagVbmeta(vbmeta_file, DisableVerity=True, DisableVerification=True):
     with open(vbmeta_file, 'rb') as f:
         vbmeta = f.read()
     return FlagVbmetaBytes(vbmeta, DisableVerity=DisableVerity, DisableVerification=DisableVerification)
+
+def RawJsonListToDict(rawJsonList):
+    """
+    Converts Raw Json result outputted from device into dict. 
+    Usually used altogether with OemInfo('get_devinfo') function for HMD devices.
+
+    Args:
+      rawJson: The raw json result outputted from device.
+
+    Returns:
+      Properly formatted dict based on the device output.
+      
+    """
+    rawJsonString = ''
+    for i in rawJsonList:
+        rawJsonString += i
+    # Proper formatting
+    return json.loads(rawJsonString.replace(',}', '}'))
 
 def FlagVbmetaBytes(vbmeta_bytes, DisableVerity=True, DisableVerification=True):
     """

@@ -186,7 +186,7 @@ class FastbootProtocol(object):
           OKAY packet's message.
         """
         while True:
-            response = self.usb.BulkRead(64, timeout_ms=timeout_ms)
+            response = self.usb.BulkRead(128, timeout_ms=timeout_ms)
             header = bytes(response[:4])
             remaining = bytes(response[4:])
 
