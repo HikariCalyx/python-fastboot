@@ -110,6 +110,10 @@ print(getperm(ThisDevice))
 
 ### History
 
+#### 1.3.9
+
+* Fixed the dependencies issue.
+
 #### 1.3.8
 
 * Added support for Unisoc "flashing unlock_bootloader" function (UnisocUnlockBootloader())
