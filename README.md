@@ -114,6 +114,7 @@ print(getperm(ThisDevice))
 
 * Fixed dependencies issue.
 * Fixed the Getvar function issue.
+* Add new feature: logical-partition create, resize and delete under fastbootd. (CreateLogicalPartition, ResizeLogicalPartition, DeleteLogicalPartition)
 
 #### 1.3.8
 
