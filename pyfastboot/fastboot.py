@@ -548,7 +548,7 @@ class FastbootCommands(object):
                         getvar_dict.update({i.split(':')[0]: i.split(':')[1]})
                     # partition-size:[partname]:
                     elif i.count(':') == 2:
-                        getvar_dict.update({i.rsplit(':', 2)[0]: i.rsplit(':', 2)[1]})
+                        getvar_dict.update({i.rsplit(':', 1)[0]: i.rsplit(':', 1)[1]})
                     # For non-standard variables:
                     else:
                         getvar_dict.update({i.split(':', 1)[0]: i.split(':', 1)[1]})
@@ -774,6 +774,97 @@ class FastbootCommands(object):
             else:
                 return b'UsbTrafficFailure'
 
+    def CreateLogicalPartition(self, partition_name, size, info_cb=DEFAULT_MESSAGE_CALLBACK, timeout_ms=None):
+        """Creates a logical partition under Fastbootd.
+
+        Args:
+          partition_name: A logical partition that desired to create under Fastboot mode.
+          size: Desired partition size in kilobytes.
+          
+        Returns:
+          Message if the logical partition successfully created.
+        """
+        if self.IsFastbootd():
+            if not type(size) == int:
+                raise Exception('SizeNotIntegerException')
+            if type(partition_name) == str:
+                return self._SimpleCommand(b'create-logical-partition:' + 
+                                        partition_name.encode('utf-8') + 
+                                        b':' + str(size).encode('utf-8'), 
+                                        timeout_ms=timeout_ms, info_cb=info_cb)
+            elif type(partition_name) == bytes:
+                return self._SimpleCommand(b'create-logical-partition:' + 
+                                        partition_name + b':' +
+                                        str(size).encode('utf-8'), 
+                                        timeout_ms=timeout_ms, info_cb=info_cb)
+            else:
+                raise Exception('PartitionNameInvalidException')
+        else:
+            raise Exception('DeviceNotUnderFastbootd')
+        
+    def ResizeLogicalPartition(self, partition_name, size, info_cb=DEFAULT_MESSAGE_CALLBACK, timeout_ms=None):
+        """Resizes a logical partition under Fastbootd.
+
+        Args:
+          partition_name: A logical partition that desired to create under Fastboot mode.
+          size: Desired partition size in kilobytes.
+          
+        Returns:
+          Message if the logical partition successfully resized.
+        """
+        if self.IsFastbootd():
+            if not type(size) == int:
+                raise Exception('SizeNotIntegerException')
+            if type(partition_name) == str:
+                if self.Getvar('is-logical:' + partition_name) == b'yes':
+                    return self._SimpleCommand(b'resize-logical-partition:' + 
+                                            partition_name.encode('utf-8') + 
+                                            b':' + str(size).encode('utf-8'), 
+                                            timeout_ms=timeout_ms, info_cb=info_cb)
+                else:
+                    raise Exception('PartitionNotLogicalException')
+            elif type(partition_name) == bytes:
+                if self.Getvar('is-logical:' + partition_name.decode('utf-8')) == b'yes':
+                    return self._SimpleCommand(b'resize-logical-partition:' + 
+                                            partition_name + b':' +
+                                            str(size).encode('utf-8'), 
+                                            timeout_ms=timeout_ms, info_cb=info_cb)
+                else:
+                    raise Exception('PartitionNotLogicalException')
+            else:
+                raise Exception('PartitionNameInvalidException')
+        else:
+            raise Exception('DeviceNotUnderFastbootd')
+
+    def DeleteLogicalPartition(self, partition_name, info_cb=DEFAULT_MESSAGE_CALLBACK, timeout_ms=None):
+        """Deletes a logical partition under Fastbootd.
+
+        Args:
+          partition_name: A logical partition that desired to create under Fastboot mode.
+          
+        Returns:
+          Message if the logical partition successfully deleted.
+        """
+        if self.IsFastbootd():
+            if type(partition_name) == str:
+                if self.Getvar('is-logical:' + partition_name) == b'yes':
+                    return self._SimpleCommand(b'delete-logical-partition:' + 
+                                            partition_name.encode('utf-8'), 
+                                            timeout_ms=timeout_ms, info_cb=info_cb)
+                else:
+                    raise Exception('PartitionNotLogicalException')
+            elif type(partition_name) == bytes:
+                if self.Getvar('is-logical:' + partition_name.decode('utf-8')) == b'yes':
+                    return self._SimpleCommand(b'delete-logical-partition:' + 
+                                            partition_name, 
+                                            timeout_ms=timeout_ms, info_cb=info_cb)
+                else:
+                    raise Exception('PartitionNotLogicalException')
+            else:
+                raise Exception('PartitionNameInvalidException')
+        else:
+            raise Exception('DeviceNotUnderFastbootd')
+
     def MonkeyOemUnlock(self, token_hex, info_cb=DEFAULT_MESSAGE_CALLBACK, timeout_ms=None):
         """Writes bootloader unlock signature from Monkey server.
 
@@ -947,6 +1038,51 @@ class FastbootCommands(object):
             command = command.encode('utf8')
         return self._SimpleOemInfoCommand(
             b'flashing %s' % command, timeout_ms=timeout_ms, info_cb=info_cb)
+
+    def Gsi(self, command, timeout_ms=None, info_cb=DEFAULT_MESSAGE_CALLBACK):
+        """Executes a Gsi command on the device.
+            This command only works under Fastbootd.
+
+        Args:
+          command: Command to execute, such as 'wipe', 'disable' or 'status'.
+          timeout_ms: Optional timeout in milliseconds to wait for a response.
+          info_cb: See Download. Messages vary based on command.
+
+        Returns:
+          The final response from the device with header b'INFO'.
+        """
+        if self.IsFastbootd():
+            if not isinstance(command, bytes):
+                command = command.encode('utf8')
+            return self._SimpleCommand(
+                b'gsi:%s' % command, timeout_ms=timeout_ms, info_cb=info_cb)
+        else:
+            raise Exception('DeviceNotUnderFastbootd')
+        
+    def SetActive(self, slot, timeout_ms=None, info_cb=DEFAULT_MESSAGE_CALLBACK):
+        """Switches the current active boot slot of a device.
+
+        Args:
+          slot: The desired slot you want to have. Generally valid options:
+          a, b and other.
+          timeout_ms: Optional timeout in milliseconds to wait for a response.
+          info_cb: See Download. Messages vary based on command.
+
+        Returns:
+          Empty result unless the slot invalid.
+        """
+        try:
+            CurrentSlot = self.Getvar('current-slot')[-1:]
+        except:
+            raise Exception('DeviceHasNoSlotException')
+        if slot == 'other':
+            if CurrentSlot == b'a':
+                slot = 'b'
+            elif CurrentSlot == b'b':
+                slot = 'a'
+        return self._SimpleCommand(
+                b'set_active:%s' % slot, timeout_ms=timeout_ms, info_cb=info_cb)
+
 
     def Continue(self):
         """Continues execution past fastboot into the system."""

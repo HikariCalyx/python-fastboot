@@ -27,6 +27,24 @@ class Constants(object):
         '''Init the Class'''
 
     @classmethod
+    def misc_recovery(self):
+        """
+        The misc partition that could trigger recovery mode.
+        Helpful for devices that unable to enter Recovery with normal method.
+
+        Size: 13 bytes
+        """
+        return b'boot-recovery'
+    
+    def misc_fastbootd(self):
+        """
+        The misc partition that could trigger recovery mode to enter fastbootd.
+        Helpful for devices that unable to enter Fastbootd with normal method.
+
+        Size: 84 bytes
+        """
+        return b'boot-recovery' + 51 * b'\0' + b'recovery\n--fastboot\n'
+    
     def misc_wipedata(self):
         """
         The misc partition that could trigger recovery mode to perform factory reset.
