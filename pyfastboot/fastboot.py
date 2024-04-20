@@ -587,7 +587,11 @@ class FastbootCommands(object):
         Returns:
           True if under Fastbootd. False if not.
         """
-        isUserspace = self._SimpleCommand(b'getvar', arg='is-userspace', info_cb=info_cb)
+        try:
+            isUserspace = self._SimpleCommand(b'getvar', arg='is-userspace', info_cb=info_cb)
+        except FastbootRemoteFailure as f:
+            if 'FAIL' in str(f):
+                return False
         if isUserspace == b'yes':
             return True
         else:

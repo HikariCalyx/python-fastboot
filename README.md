@@ -110,6 +110,10 @@ print(getperm(ThisDevice))
 
 ### History
 
+#### 1.3.11
+
+* Fixed the issue on device without Fastbootd mode cannot pass isFastbootdCheck.
+
 #### 1.3.10
 
 * Fixed dependencies issue.

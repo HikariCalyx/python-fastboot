@@ -18,7 +18,7 @@ from setuptools import setup
 setup(
     name = 'pyfastboot',
     packages = ['pyfastboot'],
-    version = '1.3.10',
+    version = '1.3.11',
     author = 'Hikari Calyx',
     author_email = 'hikaricalyx@hikaricalyx.com',
     maintainer = 'Hikari Calyx',
