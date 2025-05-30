@@ -25,6 +25,9 @@ import time
 from pyfastboot import common
 from pyfastboot import usb_exceptions
 
+from collections import defaultdict
+import json
+
 _LOG = logging.getLogger('fastboot')
 
 DEFAULT_MESSAGE_CALLBACK = lambda m: logging.info('Got %s from device', m)
@@ -539,6 +542,7 @@ class FastbootCommands(object):
         if var=='all':
             getvar_all = self._SimpleOemInfoCommand(b'getvar:all', info_cb=info_cb)
             getvar_dict = {}
+            len_dict = {}
             for i in getvar_all:
                 # For standard implementations
                 if ': ' in i and i.count(':') <= 2:
@@ -552,7 +556,12 @@ class FastbootCommands(object):
                     # For non-standard variables:
                     else:
                         getvar_dict.update({i.split(':', 1)[0]: i.split(':', 1)[1]})
-                
+            merged_data = defaultdict(str)
+            for key, value in getvar_dict.items():
+                if '[' in key and ']' in key:
+                    base_key = key = key.split('[')[0]
+                    merged_data[base_key] += value
+            getvar_dict.update(dict(merged_data))
             return getvar_dict
         else:
             return self._SimpleCommand(b'getvar', arg=var, info_cb=info_cb)
@@ -627,7 +636,7 @@ class FastbootCommands(object):
         try:
             rawResult = self._SimpleOemInfoCommand(b'oem getversions', timeout_ms=timeout_ms, info_cb=info_cb)
         except FastbootRemoteFailure as f:
-            if 'unknown command' in str(f):
+            if 'unknown c' in str(f):
                 return 'NotFihDevice'
         FihDict = {}
         for i in rawResult:
@@ -739,7 +748,7 @@ class FastbootCommands(object):
         try:
             self._SimpleCommand(b'oem auth_start', timeout_ms=timeout_ms)
         except FastbootRemoteFailure as f:
-            if 'unknown command' in str(f):
+            if 'unknown c' in str(f):
                 return b'NotHmdDevice'
             else:
                 return b'UsbTrafficFailure'
@@ -773,10 +782,35 @@ class FastbootCommands(object):
             return self._SimpleCommand(
                 b'oem permission ' + permissionType[permType], timeout_ms=timeout_ms, info_cb=info_cb)
         except FastbootRemoteFailure as f:
-            if 'unknown command' in str(f):
+            if 'unknown c' in str(f):
                 return b'NotHmdDevice'
             else:
                 return b'UsbTrafficFailure'
+            
+    def HmdGetDevinfo(self, info_cb=DEFAULT_MESSAGE_CALLBACK, timeout_ms=None):
+        """Receives Device Information from HMDSW models.
+
+        ***CAUTION: This function only supports HMD Smartphones released since late-2020! ***
+
+        Args:
+          None
+
+        Returns:
+          The value in dict (if supported).
+        """
+        if self.IsFastbootd():
+            raise Exception('DeviceUnderFastbootd')
+        else:
+            try:
+                devinfo = self._SimpleOemInfoCommand(
+                b'oem get_devinfo', timeout_ms=timeout_ms, info_cb=info_cb)
+                devinfo_dict = json.loads("".join(devinfo).replace(",}", "}"))
+                return devinfo_dict
+            except FastbootRemoteFailure as f:
+                if 'unknown c' in str(f):
+                    return b'NotSupportedHmdDevice'
+                else:
+                    return b'UsbTrafficFailure'
 
     def CreateLogicalPartition(self, partition_name, size, info_cb=DEFAULT_MESSAGE_CALLBACK, timeout_ms=None):
         """Creates a logical partition under Fastbootd.
@@ -905,7 +939,7 @@ class FastbootCommands(object):
             RawOutput = self._SimpleOemInfoCommand(
                 b'oem get_unlock_data', timeout_ms=timeout_ms, info_cb=info_cb)
         except FastbootRemoteFailure as f:
-            if 'unknown command' in str(f):
+            if 'unknown c' in str(f):
                 return b'NotLenDevice'
             else:
                 return b'UsbTrafficFailure'
@@ -916,6 +950,34 @@ class FastbootCommands(object):
             for i in RawOutput[1:]:
                 unlockData += i
             return unlockData
+        
+    def LenGetCidProvReq(self, info_cb=DEFAULT_MESSAGE_CALLBACK, timeout_ms=None):
+        """Reads CID Provision Request from a Len smartphone with market model started by XT.
+
+        ***CAUTION: This function only supports Len smartphones! ***
+
+        Args:
+          None
+
+        Returns:
+          If the phone meets requirement, will return CID Provision data for this phone. 
+          Otherwise no valid data will be returned.
+        """
+        try:
+            RawOutput = self._SimpleOemInfoCommand(
+                b'oem cid_prov_req', timeout_ms=timeout_ms, info_cb=info_cb)
+        except FastbootRemoteFailure as f:
+            if 'unknown c' in str(f):
+                return b'NotLenDevice'
+            else:
+                return b'UsbTrafficFailure'
+        if 'Failed to get unlock data.' in RawOutput:
+            return 'UnableToFetchUnlockData'
+        else:
+            cidProvData = ''
+            for i in RawOutput[0:]:
+                cidProvData += i
+            return cidProvData
         
     def GetIdentifierToken(self, info_cb=DEFAULT_MESSAGE_CALLBACK, timeout_ms=None):
         """Reads identifier token from a HTC or Unisoc device.
@@ -928,14 +990,14 @@ class FastbootCommands(object):
           without "Identifier Token: " title.
           For HTC models, will return the identifier token as list,
           without "Please cut following message" title.
-          For other cases - if unknown command then will return NotHTCorUnisocDevice.
+          For other cases - if unknown c then will return NotHTCorUnisocDevice.
           If other outputs then will return other results.
         """
         try:
             RawOutput = self._SimpleOemInfoCommand(
                 b'oem get_identifier_token', timeout_ms=timeout_ms, info_cb=info_cb)
         except FastbootRemoteFailure as f:
-            if 'unknown command' in str(f):
+            if 'unknown c' in str(f):
                 return b'NotHTCorUnisocDevice'
             else:
                 return b'UsbTrafficFailure'
@@ -969,7 +1031,7 @@ class FastbootCommands(object):
             self._SimpleCommand(
                 b'oem get_identifier_token', timeout_ms=timeout_ms, info_cb=info_cb)
         except FastbootRemoteFailure as f:
-            if 'unknown command' in str(f):
+            if 'unknown c' in str(f):
                 return b'NotUnisocDevice'
             else:
                 return b'UsbTrafficFailure'
@@ -984,7 +1046,7 @@ class FastbootCommands(object):
             RawOutput = self._SimpleOemInfoCommand(
                 b'flashing unlock_bootloader', timeout_ms=timeout_ms, info_cb=info_cb)
         except FastbootRemoteFailure as f:
-            if 'unknown command' in str(f):
+            if 'unknown c' in str(f):
                 return b'NotUnisocDevice'
             elif 'Unlock bootloader fail' in str(f):
                 return False
@@ -1111,5 +1173,5 @@ class FastbootCommands(object):
         return self._SimpleCommand(b'reboot-bootloader', timeout_ms=timeout_ms)
 
     def HmdRebootEdl(self, timeout_ms=None):
-        """Reboots into the emergency download mode for HMDSW models, usually equiv to Reboot('bootloader')."""
+        """Reboots into the emergency download mode for HMDSW models."""
         return self._SimpleCommand(b'reboot-emergency', timeout_ms=timeout_ms)
