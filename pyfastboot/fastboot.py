@@ -951,6 +951,37 @@ class FastbootCommands(object):
                 unlockData += i
             return unlockData
         
+    def brandCommand(self, brand, command, info_cb=DEFAULT_MESSAGE_CALLBACK, timeout_ms=None):
+        """Executes brand specific command for non-standard implementation.
+
+        Args:
+          brand: Brand specific command prefix, e.g. Hisense, bbk.
+
+        Returns:
+          Depends on phone.
+        """
+        brandCommandBytes = b''
+        if type(brand) == str:
+            brandCommandBytes += brand.encode('utf-8') + b' '
+        elif type(brand) == bytes:
+            brandCommandBytes += brand + b' '
+        else:
+            return FastbootInvalidResponse
+        
+        if type(command) == str:
+            brandCommandBytes += command.encode('utf-8') + b' '
+        elif type(command) == bytes:
+            brandCommandBytes += command + b' '
+        else:
+            return FastbootInvalidResponse
+
+        try:
+            RawOutput = self._SimpleOemInfoCommand(
+                brandCommandBytes, timeout_ms=timeout_ms, info_cb=info_cb)
+        except FastbootRemoteFailure as f:
+            RawOutput = str(f)
+        return RawOutput
+        
     def LenGetCidProvReq(self, info_cb=DEFAULT_MESSAGE_CALLBACK, timeout_ms=None):
         """Reads CID Provision Request from a Len smartphone with market model started by XT.
 

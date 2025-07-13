@@ -110,6 +110,25 @@ print(getperm(ThisDevice))
 
 ### History
 
+#### 1.3.13
+
+* Added new feature: Brand specific OEM command function `BrandCommand(brand, command)`.
+  * Example:
+```python
+# Bootloader unlock for Hisense Phones
+ThisDevice.BrandCommand('Hisense', 'unlock')
+
+# Bootloader unlock for early Vivo Phones
+ThisDevice.BrandCommand('bbk', 'unlock_vivo')
+
+# Bootloader unlock for recent Vivo / IQOO Phones
+ThisDevice.BrandCommand('vivo_bsp', 'unlock_vivo')
+```
+
+#### 1.3.12
+
+* Added new feature: Automatically merge Len smartphone getvar all dict, return Hmd GetDevInfo command into a proper dict.
+
 #### 1.3.11
 
 * Fixed the issue on device without Fastbootd mode cannot pass isFastbootdCheck.
